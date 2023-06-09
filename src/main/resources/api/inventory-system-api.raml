@@ -1,0 +1,62 @@
+#%RAML 1.0
+title: Inventory System API
+mediaType:
+  - application/json
+version: "1.0"
+protocols:
+  - HTTP
+/inventory:
+  get:
+    description: Retrieve all inventory items
+    responses:
+      "200":
+        body:
+          items:
+            type: InventoryItem
+            example:
+              strict: true
+              value:
+                productCode: TSHIRT-00065
+                size: M
+                description: Space Monkey
+                count: 23
+  post:
+    description: Add a new inventory item
+    body:
+      type: InventoryItem
+    responses:
+      "201":
+        body:
+          type: InventoryItem
+baseUri: http://localhost/api
+/inventory/{productCode}:
+  put:
+    description: Update existing inventory item
+    body:
+      type: InventoryItem
+    responses:
+      "200":
+        body:
+          type: InventoryItem
+      "404":
+        body:
+          type: string
+types:
+  InventoryItem:
+    example:
+      strict: true
+      value:
+        productCode: TSHIRT-0009
+        size: L
+        description: Gamer Mode On
+        count: 84
+    properties:
+      productCode:
+        type: string
+      size:
+        type: string
+      description:
+        type: string
+      count:
+        type: number
+        format: int
