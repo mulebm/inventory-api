@@ -13,21 +13,21 @@ protocols:
         body:
           items:
             type: InventoryItem
-            example:
-              strict: true
-              value:
-                productCode: TSHIRT-00065
-                size: M
-                description: Space Monkey
-                count: 23
   post:
     description: Add a new inventory item
     body:
       type: InventoryItem
     responses:
       "201":
+        description: Inventory item created
         body:
           type: InventoryItem
+      "401":
+        description: Unauthorised
+      "409":
+        description: Inventory item already exists
+      "500":
+        description: Internal server error
 baseUri: http://localhost/api
 /inventory/{productCode}:
   put:
@@ -36,27 +36,65 @@ baseUri: http://localhost/api
       type: InventoryItem
     responses:
       "200":
+        description: Inventory item updated successfully
         body:
           type: InventoryItem
+      "204":
+        description: Inventory item not found
+      "304":
+        description: Inventory item not modified
       "404":
+        description: Inventory item not found
+      "500":
+        description: Internal server error
+  get:
+    description: Retrieve single inventory item
+    responses:
+      "200":
         body:
-          type: string
+          type: InventoryItem
+      "204":
+        description: Inventory item not found
+      "404":
+        description: Inventory item not found
+      "500":
+        description: Internal server error
+  delete:
+    description: Delete existing inventory item
+    responses:
+      "200":
+        description: Inventory item deleted successfully
+      "204":
+        description: Inventory item not found
+      "404":
+        description: Inventory item not found
+      "500":
+        description: Internal server error
 types:
   InventoryItem:
-    example:
-      strict: true
-      value:
-        productCode: TSHIRT-0009
-        size: L
-        description: Gamer Mode On
-        count: 84
     properties:
       productCode:
+        description: Product Code
+        example: TSHIRT-0099
         type: string
       size:
+        description: Product size
+        enum:
+          - XS
+          - S
+          - M
+          - L
+          - XL
+          - XXL
+          - NA
+        example: L
         type: string
       description:
+        description: Product description
+        example: API Ninja
         type: string
       count:
+        description: Item count
+        example: 42
         type: number
         format: int

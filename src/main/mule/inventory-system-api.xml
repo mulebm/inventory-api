@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd ">
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
     <http:listener-config name="inventory-system-api-httpListenerConfig">
         <http:listener-connection host="0.0.0.0" port="8081" />
     </http:listener-config>
     <apikit:config name="inventory-system-api-config" api="inventory-system-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <db:config name="Database_Config" doc:name="Database Config" doc:id="17ab8207-3fa3-4d2e-bfc5-4dfa414f242c">
+        <db:my-sql-connection host="localhost" port="3306" user="root" database="tshirts" />
+    </db:config>
     <flow name="inventory-system-api-main">
         <http:listener config-ref="inventory-system-api-httpListenerConfig" path="/api/*">
             <http:response statusCode="#[vars.httpStatus default 200]">
@@ -123,42 +126,108 @@ output application/json
             </on-error-propagate>
         </error-handler>
     </flow>
+    <flow name="get:\inventory:inventory-system-api-config">
+        <db:select doc:id="4ebe8f49-44a6-4bd5-9f27-2dd49fe9a989" config-ref="Database_Config" doc:name="get all inventory items">
+            <db:sql><![CDATA[SELECT * FROM inventory;]]></db:sql>
+        </db:select>
+        <ee:transform doc:name="Transform Message" doc:id="1f7cc999-e0c9-4c0d-8ac1-55f2fbe8448c">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) -> {
+	productCode: payload01.productCode default "",
+	size: payload01.size default "",
+	count: payload01.count default 0,
+	description: payload01.description default ""
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" message="#[payload]" />
+    </flow>
+    <flow name="post:\inventory:application\json:inventory-system-api-config">
+        <db:insert doc:name="add new inventory item" doc:id="3134c6bf-4101-457b-a3c3-abb0823eb8aa" config-ref="Database_Config">
+            <db:sql><![CDATA[INSERT INTO inventory (productCode, size, description, count) VALUES (:productCode, :size, :description, :count);]]></db:sql>
+            <db:input-parameters><![CDATA[#[payload]]]></db:input-parameters>
+        </db:insert>
+        <ee:transform doc:name="Transform Message" doc:id="8b4df924-2fa3-440c-9e56-85880fba5957">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" doc:id="ec350498-51cb-40b9-a58c-4762a8453a65" message="#[payload]" />
+    </flow>
+    <flow name="get:\inventory\(productCode):inventory-system-api-config">
+        <ee:transform doc:name="Transform Message" doc:id="7055610d-d067-44fb-9fa9-82f90cb4c60b">
+            <ee:message>
+                <ee:set-payload><![CDATA[productCode: attributes.uriParams.productCode]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <db:select doc:name="get inventory item by productCode" doc:id="153aa35c-cc58-4066-8667-899cce8fe33f" config-ref="Database_Config">
+            <db:sql><![CDATA[SELECT * FROM inventory WHERE productCode = :productCode;]]></db:sql>
+            <db:input-parameters><![CDATA[#[payload]]]></db:input-parameters>
+        </db:select>
+        <ee:transform doc:name="Transform Message" doc:id="c1d6fd35-5097-44c8-bbbb-e7d29fa3980d">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	productCode: payload.productCode,
+	size: payload.size,
+	count: payload.count,
+	description: payload.description
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" doc:name="Logger" doc:id="22ab057a-1dbb-4a3b-a2d0-15155d62c868" message="#[payload]" />
+    </flow>
     <flow name="put:\inventory\(productCode):application\json:inventory-system-api-config">
-        <ee:transform doc:name="Transform Message">
+        <ee:transform>
             <ee:variables>
                 <ee:set-variable variableName="productCode">attributes.uriParams.'productCode'</ee:set-variable>
             </ee:variables>
         </ee:transform>
-        <ee:transform doc:name="Transform Message">
+        <db:update doc:name="update inventory item by productCode" doc:id="d06fd9da-a5ff-4765-81ad-d30a956ab110" config-ref="Database_Config">
+            <db:sql><![CDATA[UPDATE inventory SET
+  size = :size,
+  description = :description,
+  count = :count
+WHERE productCode = :productCode;]]></db:sql>
+            <db:input-parameters><![CDATA[#[payload]]]></db:input-parameters>
+        </db:update>
+        <ee:transform doc:name="Transform Message" doc:id="e93d9b72-1ed3-408c-8a05-63ede0397be9">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
-{
-  productCode: "TSHIRT-0009",
-  size: "L",
-  description: "Gamer Mode On",
-  count: 84
-}]]></ee:set-payload>
+payload]]></ee:set-payload>
             </ee:message>
         </ee:transform>
+        <logger level="INFO" doc:name="Logger" doc:id="5d5c1991-46f7-42bb-858b-dcd182cef44c" message="#[payload]" />
     </flow>
-    <flow name="get:\inventory:inventory-system-api-config">
-        <logger level="INFO" message="get:\inventory:inventory-system-api-config" />
-    </flow>
-    <flow name="post:\inventory:application\json:inventory-system-api-config">
-        <ee:transform doc:name="Transform Message">
+    <flow name="delete:\inventory\(productCode):inventory-system-api-config">
+        <ee:transform doc:name="Transform Message" doc:id="f99d87a0-baa9-422a-b541-eab3bd616f96">
+            <ee:message>
+                <ee:set-payload><![CDATA[productCode: attributes.uriParams.productCode]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <db:delete doc:name="delete inventory item by productCode" doc:id="5a098c60-d3b6-47cc-b962-dd27855261d3" config-ref="Database_Config">
+            <db:sql><![CDATA[DELETE FROM inventory WHERE productCode = :productCode;]]></db:sql>
+            <db:input-parameters><![CDATA[#[payload]]]></db:input-parameters>
+        </db:delete>
+        <ee:transform doc:name="Transform Message" doc:id="e8a27e30-d9c3-4300-a3e0-bd01d906084a">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
-{
-  productCode: "TSHIRT-0009",
-  size: "L",
-  description: "Gamer Mode On",
-  count: 84
-}]]></ee:set-payload>
+payload]]></ee:set-payload>
             </ee:message>
         </ee:transform>
+        <logger level="INFO" doc:name="Logger" doc:id="64056af6-80eb-4381-b701-303f51773d2e" message="#[payload]" />
     </flow>
 </mule>
